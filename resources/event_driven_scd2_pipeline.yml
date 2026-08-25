@@ -1,0 +1,78 @@
+# Documentation-only example of the Databricks job structure.
+# Replace placeholders and adapt this example to your workspace before use.
+resources:
+  jobs:
+    event_driven_scd2_pipeline:
+      name: event_driven_scd2_pipeline
+      description: Event-driven file ingestion and SCD Type 2 processing pipeline.
+      queue:
+        enabled: true
+      max_concurrent_runs: 1
+      trigger:
+        pause_status: UNPAUSED
+        file_arrival:
+          url: /Volumes/event_driven_catalog/default/event_driven_file_store/flag_file/
+          min_time_between_triggers_seconds: 300
+          wait_after_last_change_seconds: 60
+      tasks:
+        - task_key: customer_stage_load
+          existing_cluster_id: <your-existing-cluster-id>
+          notebook_task:
+            notebook_path: /Workspace/Shared/<project-folder>/02_stage_customer
+            source: WORKSPACE
+
+        - task_key: inventory_stage_load
+          existing_cluster_id: <your-existing-cluster-id>
+          notebook_task:
+            notebook_path: /Workspace/Shared/<project-folder>/04_stage_inventory
+            source: WORKSPACE
+
+        - task_key: orders_stage_load
+          existing_cluster_id: <your-existing-cluster-id>
+          notebook_task:
+            notebook_path: /Workspace/Shared/<project-folder>/01_stage_orders
+            source: WORKSPACE
+
+        - task_key: product_stage_load
+          existing_cluster_id: <your-existing-cluster-id>
+          notebook_task:
+            notebook_path: /Workspace/Shared/<project-folder>/03_stage_product
+            source: WORKSPACE
+
+        - task_key: shipping_stage_load
+          existing_cluster_id: <your-existing-cluster-id>
+          notebook_task:
+            notebook_path: /Workspace/Shared/<project-folder>/05_stage_shipping
+            source: WORKSPACE
+
+        - task_key: Data_Validation
+          existing_cluster_id: <your-existing-cluster-id>
+          depends_on:
+            - task_key: inventory_stage_load
+            - task_key: shipping_stage_load
+            - task_key: customer_stage_load
+            - task_key: orders_stage_load
+            - task_key: product_stage_load
+          notebook_task:
+            notebook_path: /Workspace/Shared/<project-folder>/06_Validations_and_cross_refrence_checks
+            source: WORKSPACE
+
+        - task_key: Data_Enrichment
+          existing_cluster_id: <your-existing-cluster-id>
+          depends_on:
+            - task_key: Data_Validation
+          notebook_task:
+            notebook_path: /Workspace/Shared/<project-folder>/07_transforming_data
+            source: WORKSPACE
+
+        - task_key: SCD2_Merge
+          existing_cluster_id: <your-existing-cluster-id>
+          depends_on:
+            - task_key: Data_Enrichment
+          notebook_task:
+            notebook_path: /Workspace/Shared/<project-folder>/08_final_merge
+            source: WORKSPACE
+
+      tags:
+        env: dev
+        project: event_driven_data_ingestion_scd2
